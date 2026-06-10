@@ -359,20 +359,31 @@ class RolloutConfig(BaseConfig):
             )
 
 
-def ensure_rollout_config(config) -> RolloutConfig:
+def ensure_rollout_config(
+    config,
+    *,
+    resolved_n_gpus_per_node: Optional[int] = None,
+) -> RolloutConfig:
     """Coerce rollout config to RolloutConfig (NPU: syncs PP from engine_kwargs)."""
     if isinstance(config, RolloutConfig):
-        return config
-    from omegaconf import OmegaConf, open_dict
+        rollout_config = config
+    else:
+        from omegaconf import OmegaConf, open_dict
 
-    from verl.utils.config import omega_conf_to_dataclass
+        from verl.utils.config import omega_conf_to_dataclass
 
-    cfg = OmegaConf.create(config)
-    # rollout.yaml uses oc.select(..., null) for mtp; null cannot merge into non-optional MtpConfig.
-    if cfg.get("mtp") is None:
-        with open_dict(cfg):
-            cfg.pop("mtp", None)
-    return omega_conf_to_dataclass(cfg, dataclass_type=RolloutConfig)
+        cfg = OmegaConf.create(config)
+        # rollout.yaml uses oc.select(..., null) for mtp; null cannot merge into non-optional MtpConfig.
+        if cfg.get("mtp") is None:
+            with open_dict(cfg):
+                cfg.pop("mtp", None)
+        rollout_config = omega_conf_to_dataclass(cfg, dataclass_type=RolloutConfig)
+
+    # rollout.yaml defines n_gpus_per_node via oc.select:trainer.n_gpus_per_node; when this
+    # sub-config is converted in isolation the interpolation falls back to 8.
+    if resolved_n_gpus_per_node is not None:
+        object.__setattr__(rollout_config, "n_gpus_per_node", resolved_n_gpus_per_node)
+    return rollout_config
 
 
 def get_rollout_parallel_world_size(config) -> int:

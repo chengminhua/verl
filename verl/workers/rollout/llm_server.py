@@ -26,7 +26,7 @@ from uuid import uuid4
 
 import ray
 from cachetools import LRUCache
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from verl.single_controller.ray.base import RayResourcePool, RayWorkerGroup
 from verl.utils.device import is_torch_npu_available
@@ -243,7 +243,11 @@ class LLMServerManager:
     ):
         self.config = config
         if is_torch_npu_available(check_device=False):
-            self.rollout_config = ensure_rollout_config(config.actor_rollout_ref.rollout)
+            resolved_n_gpus = OmegaConf.select(config, "actor_rollout_ref.rollout.n_gpus_per_node", default=None)
+            self.rollout_config = ensure_rollout_config(
+                config.actor_rollout_ref.rollout,
+                resolved_n_gpus_per_node=resolved_n_gpus,
+            )
         else:
             self.rollout_config = config.actor_rollout_ref.rollout
         self.model_config = config.actor_rollout_ref.model
