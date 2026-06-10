@@ -363,14 +363,14 @@ def ensure_rollout_config(config) -> RolloutConfig:
     """Coerce rollout config to RolloutConfig (NPU: syncs PP from engine_kwargs)."""
     if isinstance(config, RolloutConfig):
         return config
-    from omegaconf import OmegaConf
+    from omegaconf import OmegaConf, open_dict
 
     from verl.utils.config import omega_conf_to_dataclass
 
     cfg = OmegaConf.create(config)
     # rollout.yaml uses oc.select(..., null) for mtp; null cannot merge into non-optional MtpConfig.
     if cfg.get("mtp") is None:
-        with OmegaConf.open_dict(cfg):
+        with open_dict(cfg):
             cfg.pop("mtp", None)
     return omega_conf_to_dataclass(cfg, dataclass_type=RolloutConfig)
 
