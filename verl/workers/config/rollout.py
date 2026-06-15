@@ -380,13 +380,42 @@ class RolloutConfig(BaseConfig):
             )
 
 
-def ensure_rollout_config(config) -> RolloutConfig:
-    """Coerce rollout config to RolloutConfig (NPU: syncs PP from engine_kwargs)."""
+def ensure_rollout_config(
+    config,
+    *,
+    root_config=None,
+    config_path: Optional[str] = None,
+) -> RolloutConfig:
+    """Coerce rollout config to RolloutConfig (NPU: syncs PP from engine_kwargs).
+
+    Rollout YAML fields such as ``n_gpus_per_node`` and ``mtp`` use ``oc.select``
+    against sibling nodes (e.g. ``trainer``). Passing ``root_config`` and
+    ``config_path`` resolves those interpolations in the full Hydra tree before
+    converting to a dataclass. Without root context the sub-config is detached and
+    ``oc.select`` fallbacks (e.g. ``n_gpus_per_node=8``, ``mtp=null``) apply.
+    """
     if isinstance(config, RolloutConfig):
         return config
+
+    from omegaconf import OmegaConf, open_dict
+
     from verl.utils.config import omega_conf_to_dataclass
 
-    return omega_conf_to_dataclass(config, dataclass_type=RolloutConfig)
+    if root_config is not None and config_path is not None:
+        cfg_node = OmegaConf.select(root_config, config_path)
+        if cfg_node is not None:
+            cfg = OmegaConf.create(OmegaConf.to_container(cfg_node, resolve=True))
+        else:
+            cfg = OmegaConf.create(config)
+    else:
+        cfg = OmegaConf.create(config)
+
+    # rollout.yaml uses oc.select(..., null) for mtp; null cannot merge into non-optional MtpConfig.
+    if cfg.get("mtp") is None:
+        with open_dict(cfg):
+            cfg.pop("mtp", None)
+
+    return omega_conf_to_dataclass(cfg, dataclass_type=RolloutConfig)
 
 
 def get_rollout_parallel_world_size(config) -> int:

@@ -243,7 +243,11 @@ class LLMServerManager:
     ):
         self.config = config
         if is_torch_npu_available(check_device=False):
-            self.rollout_config = ensure_rollout_config(config.actor_rollout_ref.rollout)
+            self.rollout_config = ensure_rollout_config(
+                config.actor_rollout_ref.rollout,
+                root_config=config,
+                config_path="actor_rollout_ref.rollout",
+            )
         else:
             self.rollout_config = config.actor_rollout_ref.rollout
         self.model_config = config.actor_rollout_ref.model
