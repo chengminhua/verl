@@ -14,6 +14,7 @@
 import asyncio
 import logging
 import os
+from typing import Any
 
 import numpy as np
 import ray
@@ -25,6 +26,45 @@ from verl.workers.config.rollout import PrometheusConfig
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
+_SAMPLING_EPS = 1e-5
+
+
+def compute_per_request_seed(
+    *,
+    base_seed: int,
+    sample_index: int,
+    rollout_n: int = 0,
+    global_step: int = -1,
+) -> int:
+    """Compute a deterministic per-request RNG seed for inference engines."""
+    seed = base_seed + int(sample_index) * 1_000_003 + int(rollout_n) * 1_009
+    if global_step >= 0:
+        seed += int(global_step) * 9_176
+    return seed & 0x7FFFFFFF
+
+
+def maybe_apply_per_request_seed(
+    sampling_params: dict[str, Any],
+    *,
+    per_request_seed: bool,
+    base_seed: int | None,
+    sample_index: int,
+    rollout_n: int = 0,
+    global_step: int = -1,
+) -> None:
+    """Set ``seed`` in sampling params when per-request seeding is enabled."""
+    if not per_request_seed:
+        return
+    temperature = sampling_params.get("temperature", 0.0)
+    if temperature is None or temperature < _SAMPLING_EPS:
+        return
+    sampling_params["seed"] = compute_per_request_seed(
+        base_seed=base_seed or 0,
+        sample_index=sample_index,
+        rollout_n=rollout_n,
+        global_step=global_step,
+    )
 
 
 def get_max_position_embeddings(hf_config) -> int:

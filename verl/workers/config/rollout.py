@@ -183,6 +183,12 @@ class RolloutConfig(BaseConfig):
     n: int = 1
     repetition_penalty: float = 1.0
 
+    # Base seed for rollout RNG. Combined with replica_rank for vLLM engine init.
+    seed: Optional[int] = None
+    # When True, each generation request gets a unique SamplingParams.seed.
+    # When False (default), rollout behaves as before (no per-request seed).
+    per_request_seed: bool = False
+
     # Early termination threshold for multi-turn rollout in sglang.
     # Abort remaining requests when (1 - over_sample_rate) * total_requests are completed.
     over_sample_rate: float = 0.0

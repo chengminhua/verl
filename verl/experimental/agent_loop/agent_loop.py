@@ -69,6 +69,7 @@ from verl.workers.config import (
     RolloutConfig,
 )
 from verl.workers.rollout.llm_server import LLMServerClient
+from verl.workers.rollout.utils import maybe_apply_per_request_seed
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
@@ -552,6 +553,15 @@ class AgentLoopWorker:
             sample_sampling_params = dict(sampling_params)
             if not validate and per_sample_do_sample is not None and not bool(per_sample_do_sample[i]):
                 apply_greedy_sampling_params(sample_sampling_params)
+            traj = trajectory_info[i]
+            maybe_apply_per_request_seed(
+                sample_sampling_params,
+                per_request_seed=config.per_request_seed,
+                base_seed=config.seed,
+                sample_index=traj["sample_index"],
+                rollout_n=traj["rollout_n"],
+                global_step=traj["step"],
+            )
             tasks.append(
                 asyncio.create_task(
                     self._run_agent_loop(sample_sampling_params, trajectory_info[i], trace=trace_this_sample, **kwargs)

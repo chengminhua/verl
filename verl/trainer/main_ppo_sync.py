@@ -102,6 +102,7 @@ from verl.utils.tracking import Tracking, ValidationGenerationsLogger
 from verl.workers.config import CriticConfig, DistillationConfig
 from verl.workers.engine_workers import ActorRolloutRefWorker, TrainingWorker, TrainingWorkerConfig
 from verl.workers.rollout.llm_server import LLMServerManager
+from verl.workers.rollout.utils import maybe_apply_per_request_seed
 from verl.workers.utils.losses import value_loss
 from verl.workers.utils.padding import response_from_nested, response_to_nested
 
@@ -362,11 +363,23 @@ class AgentLoopWorkerTQ(AgentLoopWorker):
             if not trajectory["validate"] and not do_sample:
                 apply_greedy_sampling_params(run_sampling_params)
 
+            per_request_seed = getattr(config, "per_request_seed", False)
+            base_seed = getattr(config, "seed", None)
+
             tasks = []
             for i in range(n):
+                loop_sampling_params = dict(run_sampling_params)
+                maybe_apply_per_request_seed(
+                    loop_sampling_params,
+                    per_request_seed=per_request_seed,
+                    base_seed=base_seed,
+                    sample_index=trajectory["sample_index"],
+                    rollout_n=i,
+                    global_step=trajectory["step"],
+                )
                 task = asyncio.create_task(
                     self._run_agent_loop(
-                        run_sampling_params, trajectory=trajectory, trace=trace, session_id=i, **prompt
+                        loop_sampling_params, trajectory=trajectory, trace=trace, session_id=i, **prompt
                     )
                 )
                 tasks.append(task)

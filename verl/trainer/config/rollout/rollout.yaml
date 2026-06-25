@@ -22,6 +22,17 @@ top_k: -1
 # Top-p sampling parameter. Default 1.0.
 top_p: 1
 
+# Base random seed for rollout. Engine startup uses replica_rank + seed (vLLM).
+# Optional; defaults to 0 when unset. Only affects per-request seeds when
+# per_request_seed is true.
+seed: null
+
+# Script toggle: set actor_rollout_ref.rollout.per_request_seed=true to enable.
+# When false (default), rollout behaves as before (no SamplingParams.seed per prompt).
+# When true, each generation request gets a unique seed from seed, prompt index,
+# rollout_n, and global step. Requires temperature > 0.
+per_request_seed: false
+
 # typically the same as data max prompt length
 # same as data.max_prompt_length if it exists
 prompt_length: ${oc.select:data.max_prompt_length,512}
